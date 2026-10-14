@@ -21,8 +21,11 @@ for (const [name, version] of [['@umbrelladocs/linkspector', linkspector], ['pup
 // installs two copies and leaves which one runs to npm's resolution, which is
 // the opposite of pinning. This is the check the guide asks a human to do.
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+// node refuses to spawn a `.cmd` without a shell, so Windows needs one. The
+// arguments are literals from this file, never user input.
 const declared = execFileSync(npm, ['view', `@umbrelladocs/linkspector@${linkspector}`, 'dependencies.puppeteer'], {
   encoding: 'utf8',
+  shell: process.platform === 'win32',
 }).trim()
 
 const satisfied = execFileSync(

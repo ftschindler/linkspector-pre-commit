@@ -1,3 +1,3 @@
 # Good
 
-[A link that resolves](https://example.com/)
+[A link that resolves](ignored.md)

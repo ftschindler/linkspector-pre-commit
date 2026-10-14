@@ -2,6 +2,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { satisfies } from 'semver'
 
 const require = createRequire(import.meta.url)
 const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
@@ -28,13 +29,7 @@ const declared = execFileSync(npm, ['view', `@umbrelladocs/linkspector@${linkspe
   shell: process.platform === 'win32',
 }).trim()
 
-const satisfied = execFileSync(
-  process.execPath,
-  ['-e', `process.stdout.write(String(require('semver').satisfies("${puppeteer}", "${declared}")))`],
-  { encoding: 'utf8', cwd: new URL('..', import.meta.url).pathname },
-).trim()
-
-if (satisfied !== 'true') {
+if (!satisfies(puppeteer, declared)) {
   failures.push(`puppeteer ${puppeteer} is outside linkspector ${linkspector}'s declared range ${declared}`)
 }
 

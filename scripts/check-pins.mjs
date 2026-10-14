@@ -20,7 +20,8 @@ for (const [name, version] of [['@umbrelladocs/linkspector', linkspector], ['pup
 // linkspector declares its own caret range on puppeteer. Pinning outside it
 // installs two copies and leaves which one runs to npm's resolution, which is
 // the opposite of pinning. This is the check the guide asks a human to do.
-const declared = execFileSync('npm', ['view', `@umbrelladocs/linkspector@${linkspector}`, 'dependencies.puppeteer'], {
+const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+const declared = execFileSync(npm, ['view', `@umbrelladocs/linkspector@${linkspector}`, 'dependencies.puppeteer'], {
   encoding: 'utf8',
 }).trim()
 

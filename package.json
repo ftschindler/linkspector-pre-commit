@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "check-pins": "node scripts/check-pins.mjs",
-    "test": "node --test test/"
+    "test": "node --test"
   },
   "dependencies": {
     "@umbrelladocs/linkspector": "0.5.3",

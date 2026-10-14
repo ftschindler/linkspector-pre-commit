@@ -1,0 +1,28 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 6306a48f7dae5861702d573c9c247e4e9498e867 # frozen: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: mixed-line-ending
+  - repo: https://github.com/rhysd/actionlint
+    rev: 03d0035246f3e81f36aed592ffb4bebf33a03106 # frozen: v1.7.7
+    hooks:
+      - id: actionlint
+  - repo: https://github.com/google/yamlfmt
+    rev: 21ca5323a9c87ee37a434e0ca908efc0a89daa07 # frozen: v0.21.0
+    hooks:
+      - id: yamlfmt
+  # This repository checks its own links with the hook it ships, which is the only
+  # test that the published entry point works the way a consumer will call it.
+  - repo: local
+    hooks:
+      - id: linkspector-changed
+        name: Check broken links (linkspector, changed files)
+        entry: node bin/linkspector-changed.js
+        language: system
+        pass_filenames: true
+        files: \.md$
+        exclude: ^test/fixtures/broken\.md$

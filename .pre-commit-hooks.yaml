@@ -1,0 +1,14 @@
+- id: linkspector-changed
+  name: Check broken links (linkspector, changed files)
+  description: Run linkspector over the files pre-commit passes, using your .linkspector.yml for everything else.
+  entry: linkspector-changed
+  language: node
+  pass_filenames: true
+  files: \.(md|markdown|adoc|asciidoc)$
+- id: linkspector-all
+  name: Check broken links (linkspector, whole tree)
+  description: Run linkspector over everything your .linkspector.yml names, for CI and scheduled sweeps.
+  entry: linkspector-all
+  language: node
+  pass_filenames: false
+  always_run: true

@@ -1,0 +1,9 @@
+dirs:
+  - .
+fileExtensions:
+  - md
+useGitIgnore: true
+ignorePatterns:
+  - pattern: '^https://ignored\.invalid/.*' # The fixture proving ignorePatterns survive the rewrite
+timeout: 10000
+retryCount: 3

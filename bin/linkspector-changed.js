@@ -60,7 +60,7 @@ try {
   if (options.browser) {
     installBrowser()
   }
-  process.exit(check(generated))
+  process.exit(await check(generated))
 } finally {
   rmSync(directory, { recursive: true, force: true })
 }

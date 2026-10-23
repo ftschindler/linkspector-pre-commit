@@ -1,6 +1,6 @@
 {
   "name": "@ftschindler/linkspector-pre-commit",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A pre-commit hook that runs linkspector over the files pre-commit passes it, with the browser behind it pinned.",
   "license": "MIT",
   "type": "module",

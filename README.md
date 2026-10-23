@@ -16,7 +16,7 @@ and runs the check against that. Everything else in your configuration carries o
 
 ```yaml
 - repo: https://github.com/ftschindler/linkspector-pre-commit
-  rev: v0.2.0
+  rev: v0.2.1
   hooks:
   - id: linkspector-changed
 ```

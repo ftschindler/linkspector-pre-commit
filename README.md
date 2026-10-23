@@ -77,6 +77,27 @@ pinned puppeteer resolves its own revision, so this cannot drift from the pin th
 `chrome@...` can. It is a no-op once the browser is cached, and it is what makes the hook work
 in a restored CI environment whose postinstall never ran. `--no-browser-install` turns it off.
 
+### The sandbox, on a kernel that refuses one
+
+Chrome builds its sandbox out of an unprivileged user namespace, and Ubuntu 23.10 and later
+restrict those through AppArmor. Where that restriction is on, Chrome does not start degraded:
+it aborts before a single link is checked.
+
+```text
+FATAL: No usable sandbox! If you are running on Ubuntu 23.10+ or another Linux distro
+that has disabled unprivileged user namespaces with AppArmor ...
+```
+
+GitHub's `ubuntu-latest` is one of those kernels, which is how this was found: the same commit
+passed and failed an hour apart, on two builds of the same runner image.
+
+**The hook handles it, so no consumer has to remember a `sysctl` line.** On Linux, and only
+where the kernel actually says the restriction is on, it points puppeteer at a shim that execs
+the pinned Chrome with `--no-sandbox`. linkspector hardcodes the arguments it launches with, so
+the executable is the only seam a wrapper has. The sandbox is given up exactly where Chrome
+could not have had one, and kept everywhere it can, and a `PUPPETEER_EXECUTABLE_PATH` you set
+yourself is left alone.
+
 ## Licence
 
 [MIT](LICENSE).

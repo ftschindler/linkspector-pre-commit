@@ -21,4 +21,4 @@ if (options.browser) {
   installBrowser()
 }
 
-process.exit(check(options.config))
+process.exit(await check(options.config))

@@ -1,0 +1,201 @@
+name: Release
+# A release here is a tag. Nothing is published to npm: a consumer pins
+# `rev: vX.Y.Z` in their `.pre-commit-config.yaml`, and pre-commit installs the
+# hook straight from the tagged tree. So the tag is not a record of the release,
+# it *is* the release.
+#
+# The version is nonetheless written into the tree, in two places that both have
+# to carry it: `package.json`, because pre-commit installs this hook with
+# `npm install -g .` and npm refuses a package without a version, and the
+# README's `rev:`, because that example is what a consumer copies and a year of
+# releases would otherwise leave it offering v0.1.0. Both are written here and
+# never in a pull request - a hand-bumped number disagrees with its tag the first
+# time somebody forgets, and every concurrent pull request touches the same line
+# and conflicts on merge. What a pull request carries instead is a label saying
+# how big it is, which is a thing a reviewer already decides.
+#
+# Pushing that commit to `main` needs a token allowed past the ruleset, which is
+# what the release app is for. It is installed on this repository, holds
+# `contents: write` and nothing else, and is named in the bypass list of the
+# ruleset protecting `main` - the entry that is not a permission, and the one
+# this fails on if it is ever dropped.
+on:
+  pull_request:
+    types: [opened, reopened, labeled, unlabeled, synchronize]
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  # Never cancelled in flight: a release half-done is a tag with no version
+  # behind it, or the reverse.
+  group: release_${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  bump_label:
+    name: The pull request says how big it is
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Refuse a pull request without exactly one bump label
+        # Exactly one, not at least one: two labels is not a bigger bump, it is a
+        # disagreement, and picking the larger silently would cut a major because
+        # somebody left `minor` on from an earlier round.
+        env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+        run: |
+          set -euo pipefail
+          chosen=""
+          for label in ${LABELS}; do
+            case "${label}" in
+              major|minor|patch|no-release)
+                if [ -n "${chosen}" ]; then
+                  echo "::error::Two bump labels (${chosen}, ${label}). One says what this change is."
+                  exit 1
+                fi
+                chosen="${label}"
+                ;;
+            esac
+          done
+          if [ -z "${chosen}" ]; then
+            echo "::error::Label this pull request major, minor, patch or no-release."
+            echo "major: a config that works stops working, or a pin moves in a way that changes which links pass."
+            echo "minor: a new option or hook. patch: a fix, or a pin bump that changes nothing a consumer sees."
+            echo "no-release: nothing a consumer installs - CI, tests, docs about the repo itself."
+            exit 1
+          fi
+          echo "This pull request is a ${chosen}."
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          cache-dependency-glob: |
+            scripts/*.py
+            test/*.py
+      - name: Refuse a hand-edited version
+        # The release job owns those two lines. A pull request that also writes
+        # one gets overwritten on merge at best, and at worst ships a tag whose
+        # README tells a consumer to pin a different one. The rest of both files
+        # is free - a dependency, a paragraph - so this reads the diff rather
+        # than the file list.
+        run: ./scripts/version.py check-untouched "origin/${{ github.event.pull_request.base.ref }}"
+  release:
+    name: Tag the merge
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Mint a token for the release bot
+        id: token
+        # The release commit has to pass the ruleset on main, and the token a job
+        # is handed by default cannot: it is deliberately not allowed to bypass
+        # rules, which is the right default everywhere except here. An app
+        # installed on this repository can be. It holds one permission
+        # (contents: write), the token it mints expires within the hour, and it
+        # is not a person - so revoking it touches nobody's own access and the
+        # release commits read as a bot's rather than as a maintainer's.
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          # The client id rather than the numeric app id, which the action now
+          # deprecates. Both name the same app.
+          client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          token: ${{ steps.token.outputs.token }}
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          cache-dependency-glob: |
+            scripts/*.py
+            test/*.py
+      - name: Find the bump this merge asked for
+        id: bump
+        # From the pull request the commit came in on, because that is where a
+        # person judged the change as a whole. A push straight to main has no
+        # such judgement and releases nothing: silence is the safe reading, since
+        # the alternative is guessing a severity for a change nobody reviewed.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          labels=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
+            --jq '.[0].labels[].name' || true)
+          level=""
+          for label in ${labels}; do
+            case "${label}" in
+              major|minor|patch) level="${label}" ;;
+              no-release) level="none" ;;
+            esac
+          done
+          if [ -z "${level}" ]; then
+            echo "No bump label on the pull request this commit arrived in; nothing to release."
+            level="none"
+          fi
+          echo "level=${level}" >> "${GITHUB_OUTPUT}"
+      - name: Work out the next version
+        id: version
+        if: steps.bump.outputs.level != 'none'
+        env:
+          LEVEL: ${{ steps.bump.outputs.level }}
+        run: |
+          set -euo pipefail
+          current=$(./scripts/version.py current)
+          next=$(./scripts/version.py next "${LEVEL}")
+          echo "next=${next}" >> "${GITHUB_OUTPUT}"
+          echo "Releasing ${current} -> ${next}."
+      - name: Work out who the bot commits as
+        id: identity
+        if: steps.bump.outputs.level != 'none'
+        # A bot's noreply address has to carry its numeric user id, and a commit
+        # whose address does not match is attributed to nobody - it renders as a
+        # grey avatar and links nowhere, which is how a history stops answering
+        # "who did this". The id is asked for rather than pasted in because the
+        # app it belongs to is created by hand, and a number hardcoded here is
+        # one nobody will think to change.
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          SLUG: ${{ steps.token.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          id=$(gh api "/users/${SLUG}[bot]" --jq .id)
+          echo "name=${SLUG}[bot]" >> "${GITHUB_OUTPUT}"
+          echo "email=${id}+${SLUG}[bot]@users.noreply.github.com" >> "${GITHUB_OUTPUT}"
+      - name: Write the version into the working tree
+        if: steps.bump.outputs.level != 'none'
+        env:
+          NEXT: ${{ steps.version.outputs.next }}
+        run: ./scripts/version.py write "${NEXT}"
+      - name: Commit the version and tag it
+        if: steps.bump.outputs.level != 'none'
+        # One commit carrying the version, and the tag on that commit rather than
+        # on the merge: a tag whose tree holds the previous version is a release
+        # that installs as its predecessor, and whose README tells a consumer to
+        # pin the one before that.
+        #
+        # **One push, carrying both refs.** As two pushes, the second pack holds
+        # the tag alone - the commit it points at went up a moment earlier - and
+        # a receiving replica that has not seen that commit yet reads the pack as
+        # incomplete and declines it. One push puts both in one pack and closes
+        # the window. `--atomic` then makes the pair all-or-nothing, which is
+        # what the concurrency group at the top of this file is for.
+        env:
+          NEXT: ${{ steps.version.outputs.next }}
+          BOT_NAME: ${{ steps.identity.outputs.name }}
+          BOT_EMAIL: ${{ steps.identity.outputs.email }}
+        run: |
+          set -euo pipefail
+          git config user.name "${BOT_NAME}"
+          git config user.email "${BOT_EMAIL}"
+          git add package.json README.md
+          git commit -m "Release ${NEXT}"
+          git tag -a "v${NEXT}" -m "Release ${NEXT}"
+          git push --atomic origin HEAD:main "refs/tags/v${NEXT}"

@@ -37,6 +37,25 @@ jobs:
         run: npm run check-pins
       - name: Test
         run: npm test
+  # The release writes the version into two files and cuts a tag from it, and it
+  # is exercised exactly once per release - on main, where a mistake is already
+  # pushed. Its arithmetic and its two rewrites are therefore tested here, where
+  # they are free.
+  release_scripts:
+    name: Release scripts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          cache-dependency-glob: |
+            scripts/*.py
+            test/*.py
+      - name: Test
+        run: ./test/test_version.py
   hooks:
     name: Pre-commit hooks
     runs-on: ubuntu-24.04

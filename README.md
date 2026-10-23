@@ -98,6 +98,39 @@ the executable is the only seam a wrapper has. The sandbox is given up exactly w
 could not have had one, and kept everywhere it can, and a `PUPPETEER_EXECUTABLE_PATH` you set
 yourself is left alone.
 
+## Releasing
+
+A release here is a tag: nothing is published to npm, and the `rev:` a consumer pins installs
+the hook from the tagged tree. The number itself lives in `package.json`, because pre-commit
+installs this hook with `npm install -g .` and npm refuses a package without a version, and in
+the `rev:` of the example above, because that is the line people copy.
+
+Neither is edited by hand, and a pull request that writes one is refused. What a pull request
+carries instead is a label saying how big the change is, which is something a reviewer already
+decides. CI refuses one that does not carry **exactly one** of:
+
+| | |
+| --- | --- |
+| `major` | a configuration that works stops working, or a pin moves in a way that changes which links pass |
+| `minor` | a new option or a new hook |
+| `patch` | a fix, or a pin bump no consumer can see |
+| `no-release` | nothing a consumer installs: CI, tests, docs about the repo itself |
+
+On merge, [the release workflow](.github/workflows/release.yml) reads that label off the pull
+request the commit arrived in, works the next version out with
+[`scripts/version.py`](scripts/version.py), writes it into both places, and pushes a `Release
+X.Y.Z` commit and an annotated tag on it as a single atomic push. `no-release`, or a push
+straight to `main` with no pull request behind it, releases nothing — guessing a severity for a
+change nobody reviewed is worse than silence.
+
+The tag goes on the version commit rather than on the merge, because a tag whose tree still
+holds the previous version installs as its predecessor and tells whoever reads its README to
+pin the one before that.
+
+That commit has to get past the ruleset on `main`, which the token a workflow is handed by
+default deliberately cannot do. [docs/release-setup.md](docs/release-setup.md) is the four
+manual steps that make it possible.
+
 ## Licence
 
 [MIT](LICENSE).

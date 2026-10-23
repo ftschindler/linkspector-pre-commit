@@ -119,9 +119,10 @@ decides. CI refuses one that does not carry **exactly one** of:
 On merge, [the release workflow](.github/workflows/release.yml) reads that label off the pull
 request the commit arrived in, works the next version out with
 [`scripts/version.py`](scripts/version.py), writes it into both places, and pushes a `Release
-X.Y.Z` commit and an annotated tag on it as a single atomic push. `no-release`, or a push
-straight to `main` with no pull request behind it, releases nothing — guessing a severity for a
-change nobody reviewed is worse than silence.
+X.Y.Z` commit and an annotated tag on it as a single atomic push, then makes a release out of
+that tag so the releases page names the version people should actually pin. `no-release`, or a
+push straight to `main` with no pull request behind it, releases nothing — guessing a severity
+for a change nobody reviewed is worse than silence.
 
 The tag goes on the version commit rather than on the merge, because a tag whose tree still
 holds the previous version installs as its predecessor and tells whoever reads its README to

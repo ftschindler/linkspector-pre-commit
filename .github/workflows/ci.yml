@@ -1,8 +1,21 @@
 name: CI
+# Pull requests only, and deliberately. GitHub builds a pull request's checks
+# against the head merged into `main`, so what these jobs run on is already the
+# merge result rather than the branch in isolation - running them again after the
+# merge tests a tree that passed a minute earlier.
+#
+# It also ends a confusion the release job introduced: that job pushes a version
+# commit seconds behind every merge, which landed in the same concurrency group
+# as the merge itself and cancelled its checks, leaving every merge commit
+# showing a cancelled run forever.
+#
+# What this gives up is the case where two pull requests pass separately and
+# conflict in meaning once both are in. Closing that needs the branch to be up to
+# date before merging, which is a repository setting rather than anything here,
+# and `workflow_dispatch` remains for asking `main` the question by hand.
 on:
   pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 concurrency:
   group: ci_${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true

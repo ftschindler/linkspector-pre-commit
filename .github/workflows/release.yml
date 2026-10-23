@@ -199,3 +199,30 @@ jobs:
           git commit -m "Release ${NEXT}"
           git tag -a "v${NEXT}" -m "Release ${NEXT}"
           git push --atomic origin HEAD:main "refs/tags/v${NEXT}"
+      - name: Announce it
+        if: steps.bump.outputs.level != 'none'
+        # A tag is what pre-commit resolves, but it is not what a person looking
+        # at this repository sees: the releases page shows only tags somebody made
+        # a release out of, so without this it keeps naming an older version as
+        # the latest one, which is the opposite of what the page is for.
+        #
+        # Last, and after the push, because it is the one step whose failure costs
+        # nothing - the tag is already there, and the release can be made by hand
+        # or by re-running this. `--verify-tag` refuses to invent a tag if the
+        # push somehow did not happen, so a release can never name a ref that is
+        # not in the repository.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEXT: ${{ steps.version.outputs.next }}
+        run: |
+          set -euo pipefail
+          gh release create "v${NEXT}" \
+            --title "v${NEXT}" \
+            --notes "\`\`\`yaml
+          - repo: https://github.com/${{ github.repository }}
+            rev: v${NEXT}
+            hooks:
+            - id: linkspector-changed
+          \`\`\`" \
+            --generate-notes \
+            --verify-tag

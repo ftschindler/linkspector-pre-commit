@@ -15,8 +15,10 @@ name: Release
 # how big it is, which is a thing a reviewer already decides.
 #
 # Pushing that commit to `main` needs a token allowed past the ruleset, which is
-# what the release app is for, and setting it up is four manual steps:
-# docs/release-setup.md.
+# what the release app is for. It is installed on this repository, holds
+# `contents: write` and nothing else, and is named in the bypass list of the
+# ruleset protecting `main` - the entry that is not a permission, and the one
+# this fails on if it is ever dropped.
 on:
   pull_request:
     types: [opened, reopened, labeled, unlabeled, synchronize]

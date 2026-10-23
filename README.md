@@ -128,8 +128,11 @@ holds the previous version installs as its predecessor and tells whoever reads i
 pin the one before that.
 
 That commit has to get past the ruleset on `main`, which the token a workflow is handed by
-default deliberately cannot do. [docs/release-setup.md](docs/release-setup.md) is the four
-manual steps that make it possible.
+default deliberately cannot do — it is not allowed to bypass rules, which is the right default
+everywhere except here. A GitHub App installed on this repository is: it holds `contents: write`
+and nothing else, the token it mints expires within the hour, and it is named in the bypass list
+of the ruleset. That last part is not a permission, and is what the release fails on if it is
+ever lost — the push is simply declined, and the error says nothing about bypass lists.
 
 ## Licence
 
